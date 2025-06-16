@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>3-Knob Amp Control</title>
+  <script src="https://unpkg.com/nexusui"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 2rem;
+      background: #f9f9f9;
+      text-align: center;
+    }
+
+    .knob-container {
+      display: flex;
+      justify-content: center;
+      gap: 2rem;
+      margin-bottom: 2rem;
+    }
+
+    .knob-label {
+      margin-top: 0.5rem;
+      font-weight: bold;
+    }
+
+    .knob {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 3em;
+    }
+
+    .audio-options {
+      display: flex;
+      justify-content: center;
+      gap: 2rem;
+      margin-bottom: 2rem;
+    }
+
+    audio {
+      width: 100%;
+      max-width: 500px;
+    }
+
+    .centered-block {
+        width: 60%;          
+        margin: 0 auto;       /* centers the block horizontally */
+        text-align: left;     /* aligns text to the left inside the block */
+    }
+  </style>
+</head>
+<body>
+
+  <h1>PANAMA: PArametric Neural Amp Modeling with Active learning</h1>
+
+  <hr style="border: 1px solid #ccc; margin: 1em auto 2em auto; width: 60%;">
+
+  <div class="audio-options">
+    <div>
+      <label for="inputSelect">Input:</label>
+      <select id="inputSelect">
+        <option value="demo_1">demo_1</option>
+        <option value="demo_2">demo_2</option>
+        <option value="demo_3">demo_3</option>
+        <option value="demo_4">demo_4</option>
+      </select>
+    </div>
+    <div>
+      <label for="modeSelect">Mode:</label>
+      <select id="modeSelect">
+        <option value="ours">Ours</option>
+        <option value="ref">Reference</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="knob-container">
+    <div class="knob">
+      <div id="gainKnob"></div>
+      <div class="knob-label">Gain</div>
+    </div>
+    <div class="knob">
+      <div id="toneKnob"></div>
+      <div class="knob-label">Bass</div>
+    </div>
+    <div class="knob">
+      <div id="presKnob"></div>
+      <div class="knob-label">Presence</div>
+    </div>
+  </div>
+
+  <audio id="audio" controls>
+    <source src="audio/demo_1_ours_gain-mid_tone-mid_pres-mid.wav" type="audio/wav">
+    Your browser does not support the audio element.
+  </audio>
+  
+  <hr style="border: 1px solid #ccc; margin: 2em auto 1em auto; width: 60%;">
+
+  <div class="centered-block">
+    <p>This is the demo page for PANAMA. Use the sliders to control the amp settings. Use the dropdown menus to select different input signals and toggle between our model and the reference. </p>
+    <p>Note: We provide here only a subset of controls due to storage constraints for the precomputed audio files.</p>
+  </div>
+
+  <script>
+    const levels = ["low", "mid", "high"];
+    let currentState = { gain: "mid", tone: "mid", presence: "mid" };
+    let currentInput = "demo_1";
+    let currentMode = "ours";
+
+    let audio = document.getElementById("audio");
+    const inputSelect = document.getElementById("inputSelect");
+    const modeSelect = document.getElementById("modeSelect");
+
+    // Create knobs using NexusUI
+    const gainKnob = new Nexus.Slider('#gainKnob', {
+      min: 0,
+      max: 2,
+      step: 1,
+      value: 1,
+      size: [30, 150],
+      mode: 'absolute'
+    });
+
+    const toneKnob = new Nexus.Slider('#toneKnob', {
+      min: 0,
+      max: 2,
+      step: 1,
+      value: 1,
+      size: [30, 150],
+      mode: 'absolute'
+    });
+
+    const presKnob = new Nexus.Slider('#presKnob', {
+      min: 0,
+      max: 2,
+      step: 1,
+      value: 1,
+      size: [30, 150],
+      mode: 'absolute'
+    });
+
+    function getFileName(state) {
+      return `audio/${currentInput}_${currentMode}_gain-${state.gain}_tone-${state.tone}_pres-${state.presence}.wav`;
+    }
+
+    function updateAudio() {
+      const newState = {
+        gain: levels[gainKnob.value],
+        tone: levels[toneKnob.value],
+        presence: levels[presKnob.value]
+      };
+
+      if (JSON.stringify(newState) === JSON.stringify(currentState)) return;
+
+      const currentTime = audio.currentTime;
+      const wasPlaying = !audio.paused;
+
+      currentState = newState;
+
+      const newSrc = getFileName(newState);
+      console.log(`Updating audio source to: ${newSrc}`);
+      const newAudio = audio.cloneNode(true);
+      newAudio.querySelector("source").src = newSrc;
+
+      newAudio.addEventListener("loadedmetadata", () => {
+        newAudio.currentTime = Math.min(currentTime, newAudio.duration || 0);
+        if (wasPlaying) newAudio.play();
+      });
+
+      audio.parentNode.replaceChild(newAudio, audio);
+      audio = newAudio;
+    }
+
+    function updateInputOrMode() {
+      currentInput = inputSelect.value;
+      currentMode = modeSelect.value;
+
+      const currentTime = audio.currentTime;
+      const wasPlaying = !audio.paused;
+
+      const newSrc = getFileName(currentState);
+      console.log(`Updating audio source to: ${newSrc}`);
+      const newAudio = audio.cloneNode(true);
+      newAudio.querySelector("source").src = newSrc;
+
+      newAudio.addEventListener("loadedmetadata", () => {
+        newAudio.currentTime = Math.min(currentTime, newAudio.duration || 0);
+        if (wasPlaying) newAudio.play();
+      });
+
+      audio.parentNode.replaceChild(newAudio, audio);
+      audio = newAudio;
+    }
+
+    gainKnob.on('change', updateAudio);
+    toneKnob.on('change', updateAudio);
+    presKnob.on('change', updateAudio);
+    inputSelect.addEventListener('change', updateInputOrMode);
+    modeSelect.addEventListener('change', updateInputOrMode);
+  </script>
+
+</body>
+</html>
